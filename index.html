@@ -667,6 +667,11 @@ body{font-family:'Barlow',sans-serif;background:#fff;color:#1a1030;overflow-x:hi
 .float-cta{
   position:fixed;bottom:28px;right:28px;z-index:999;
   display:flex;flex-direction:column;gap:10px;align-items:flex-end;
+  opacity:0;pointer-events:none;
+  transition:opacity .3s ease;
+}
+.float-cta.visible{
+  opacity:1;pointer-events:auto;
 }
 .float-btn{
   display:flex;align-items:center;gap:8px;
@@ -868,8 +873,7 @@ body{font-family:'Barlow',sans-serif;background:#fff;color:#1a1030;overflow-x:hi
   <div style="position:absolute;inset:0;z-index:1;
     background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(61,43,158,0.35) 0%,transparent 65%),
     linear-gradient(180deg,rgba(10,6,30,0.0) 0%,rgba(10,6,30,0.95) 100%);"></div>
-  <div style="position:absolute;top:76px;left:0;right:0;height:1px;z-index:3;
-    background:linear-gradient(90deg,transparent,rgba(201,168,76,0.4) 30%,rgba(201,168,76,0.4) 70%,transparent);"></div>
+
   <div class="hero-grid" style="position:absolute;inset:0;z-index:2;"></div>
 
   <div class="hero-stack" style="position:relative;z-index:10;width:100%;max-width:900px;
@@ -1015,9 +1019,19 @@ body{font-family:'Barlow',sans-serif;background:#fff;color:#1a1030;overflow-x:hi
 
 </section>
 <!-- OFFER RIBBON -->
-<div class="offer-ribbon">
-  &#127881; &nbsp;<strong>FREE NO OBLIGATION CONSULTATION</strong> &nbsp;&mdash;&nbsp; Use code <strong>LASERNAIL</strong> for $50 Discount &nbsp;&mdash;&nbsp; <em>Limited Time!</em> &nbsp;&mdash;&nbsp;
-  <a href="#inquiry-form" style="color:var(--purple);font-weight:800;text-decoration:underline;">Claim Now</a>
+<div class="offer-ribbon" style="display:block;padding:14px 32px;line-height:1.6;">
+  <div style="font-size:18px;font-weight:800;letter-spacing:.08em;margin-bottom:4px;">
+    FREE NO OBLIGATION CONSULTATION &nbsp;&mdash;&nbsp;
+    <a href="tel:+12894018028" style="color:var(--purple);text-decoration:none;font-weight:800;">
+      &#128222; Call Now
+    </a>
+  </div>
+  <div style="font-size:15px;font-weight:600;letter-spacing:.04em;">
+    $50 Discount Coupon for your treatment &nbsp;&mdash;&nbsp;
+    Use code <strong>LASERNAIL</strong> &nbsp;&mdash;&nbsp;
+    <em>Limited Time!</em> &nbsp;&mdash;&nbsp;
+    <a href="#inquiry-form" style="color:var(--purple);font-weight:800;text-decoration:underline;">Claim Now</a>
+  </div>
 </div>
 
 
@@ -1394,14 +1408,14 @@ body{font-family:'Barlow',sans-serif;background:#fff;color:#1a1030;overflow-x:hi
     </div>
   </div>
   <div class="footer-bottom">
-    <span>© 2025 Laser Cosmetics Clinic. All rights reserved. &nbsp;|&nbsp;
+    <span style="white-space:nowrap;flex-wrap:nowrap;">
+      © 2026 Laser Cosmetics Clinic. All rights reserved. &nbsp;|&nbsp;
       <a href="#" onclick="event.preventDefault();document.getElementById('privacy-modal').style.display='flex';document.body.style.overflow='hidden';"
-        style="color:rgba(255,255,255,.35);text-decoration:underline;">Privacy Policy</a>
+        style="color:rgba(255,255,255,.45);text-decoration:underline;">Privacy Policy</a>
       &nbsp;|&nbsp;
       <a href="#" onclick="event.preventDefault();document.getElementById('terms-modal').style.display='flex';document.body.style.overflow='hidden';"
-        style="color:rgba(255,255,255,.35);text-decoration:underline;">Terms &amp; Conditions</a>
+        style="color:rgba(255,255,255,.45);text-decoration:underline;">Terms &amp; Conditions</a>
     </span>
-    <span style="color:rgba(255,255,255,.25)">lasercosmeticsclinic.com</span>
   </div>
 </footer>
 
