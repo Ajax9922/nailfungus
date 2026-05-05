@@ -1,184 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- ═══════════════════════════════════════════════
-     GOOGLE TAG MANAGER
-     Replace GTM-XXXXXXX with your GTM container ID
-     ═══════════════════════════════════════════════ -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-XXXXXXX');</script>
 
-<script>
-/* ── 25-SECOND QUALIFIED VIEW TRACKER ──────────────────────
-   Fires GTM dataLayer event after 25 focused seconds
-   GTM then sends this to Google Ads + Google Sheet
-   ──────────────────────────────────────────────────────── */
-(function() {
-  window.dataLayer = window.dataLayer || [];
-
-  var SECONDS   = 25;
-  var elapsed   = 0;
-  var startedAt = null;
-  var running   = false;
-  var rafId     = null;
-  var viewDone  = false;
-
-  // ── Unique user ID for 24hr dedup ──────────────────────
-  var uid = localStorage.getItem('lcc_uid') || '';
-  if (!uid) {
-    uid = 'u' + Date.now() + Math.random().toString(36).substr(2,6);
-    localStorage.setItem('lcc_uid', uid);
-  }
-
-  function alreadyViewedToday() {
-    var t = parseInt(localStorage.getItem('lcc_v_' + uid) || '0', 10);
-    return (Date.now() - t) < 86400000;
-  }
-
-  function markViewed() {
-    localStorage.setItem('lcc_v_' + uid, Date.now().toString());
-  }
-
-  // ── Progress bar ───────────────────────────────────────
-  var barEl = null;
-  function updateBar(pct) {
-    if (!barEl) barEl = document.getElementById('lcc-bar');
-    if (barEl) barEl.style.width = Math.min(pct, 100).toFixed(2) + '%';
-  }
-
-  // ── rAF loop — smooth 60fps bar ───────────────────────
-  function rafLoop(now) {
-    if (!running) return;
-    if (document.hidden || document.visibilityState !== 'visible') {
-      pauseTimer(); return;
-    }
-    var secs = elapsed + (now - startedAt) / 1000;
-    updateBar((secs / SECONDS) * 100);
-    if (secs >= SECONDS) {
-      running = false; elapsed = SECONDS;
-      updateBar(100);
-      onViewQualified();
-      return;
-    }
-    rafId = requestAnimationFrame(rafLoop);
-  }
-
-  function startTimer() {
-    if (running || viewDone) return;
-    running   = true;
-    startedAt = performance.now();
-    rafId     = requestAnimationFrame(rafLoop);
-  }
-
-  function pauseTimer() {
-    if (!running) return;
-    running  = false;
-    elapsed += (performance.now() - startedAt) / 1000;
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-  }
-
-  // ── Tab focus/blur ─────────────────────────────────────
-  document.addEventListener('visibilitychange', function() {
-    document.hidden ? pauseTimer() : (!viewDone && startTimer());
-  });
-  window.addEventListener('blur',  function() { pauseTimer(); });
-  window.addEventListener('focus', function() { if (!viewDone) startTimer(); });
-
-  // ── 25s view qualified ─────────────────────────────────
-  function onViewQualified() {
-    if (viewDone) return;
-    viewDone = true;
-
-    // ── Fire GTM dataLayer event → Google Ads + Sheet ──
-    window.dataLayer.push({
-      'event':        'qualified_view_25s',
-      'userId':       uid,
-      'adDuration':   25,
-      'pageTitle':    document.title,
-      'timestamp':    new Date().toISOString()
-    });
-    console.log('[LCC] 25s qualified view fired to GTM');
-
-    // ── Also log directly to Google Sheet (backup) ─────
-    if (!alreadyViewedToday()) {
-      markViewed();
-      var GS_URL = 'YOUR_APPS_SCRIPT_URL_HERE';
-      if (GS_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
-        var img = new Image();
-        img.src = GS_URL + '?action=view&userId=' + encodeURIComponent(uid)
-                + '&source=' + encodeURIComponent(
-                    (new URLSearchParams(location.search).get('utm_source') || 'google_ads')
-                  );
-      }
-    }
-
-    // ── Show $50 OFF popup ─────────────────────────────
-    showPopup();
-  }
-
-  // ── Popup ──────────────────────────────────────────────
-  function showPopup() {
-    var p = document.getElementById('lcc-popup');
-    if (p) { p.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
-  }
-
-  // ── Form submit → GTM ──────────────────────────────────
-  window.submitForm = function() {
-    var n   = (document.getElementById('fname')     || {}).value || '';
-    var em  = (document.getElementById('femail')    || {}).value || '';
-    var p   = (document.getElementById('fphone')    || {}).value || '';
-    var loc = (document.getElementById('flocation') || {}).value || '';
-
-    if (!n.trim() || !em.trim() || !p.trim()) {
-      alert('Please fill in your name, email, and phone number.');
-      return;
-    }
-
-    var btn = document.querySelector('.form-submit');
-    if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
-
-    // Fire GTM lead event → Google Ads conversion
-    window.dataLayer.push({
-      'event':        'lead_form_submit',
-      'userId':       uid,
-      'leadLocation': loc,
-      'timestamp':    new Date().toISOString()
-    });
-
-    // Send to Make.com
-    fetch('https://hook.us2.make.com/x7vtpem5ldvrv34y5hmcy6bdxsoy8xlc', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        name: n.trim(), email: em.trim(), phone: p.trim(),
-        location: loc, source: 'google_ads',
-        timestamp: new Date().toISOString()
-      })
-    }).catch(function() {});
-
-    document.getElementById('form-fields').style.display = 'none';
-    document.getElementById('form-success').style.display = 'block';
-  };
-
-  // ── Scroll fade-in ─────────────────────────────────────
-  var obs = new IntersectionObserver(function(entries) {
-    entries.forEach(function(e) {
-      if (e.isIntersecting) e.target.classList.add('visible');
-    });
-  }, { threshold: 0.12 });
-  document.querySelectorAll('.fade-up').forEach(function(el) { obs.observe(el); });
-
-  // ── Start on load ──────────────────────────────────────
-  window.addEventListener('load', function() {
-    barEl = document.getElementById('lcc-bar');
-    startTimer();
-  });
-
-})();
-</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -1007,17 +830,11 @@ html, body { overflow-x: hidden; max-width: 100%; }
 </style>
 
 /* ── 25-SECOND QUALIFIED VIEW TRACKER ──────────────────────
-   Fires GTM dataLayer event after 25 focused seconds
-   GTM then sends this to Google Ads + Google Sheet
-   ──────────────────────────────────────────────────────── */
+   25-second qualified view tracker */
 (function() {
   </script>
 </head>
 <body>
-<!-- GTM noscript fallback -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-
 <!-- HEADER -->
 <header class="header">
   <a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;"
@@ -1630,48 +1447,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
-<script>
-/* ── FORM SUBMISSION → Make.com webhook ── */
-window.submitForm = function() {
-  var n   = (document.getElementById('fname')     || {}).value || '';
-  var e   = (document.getElementById('femail')    || {}).value || '';
-  var p   = (document.getElementById('fphone')    || {}).value || '';
-  var loc = (document.getElementById('flocation') || {}).value || '';
 
-  if (!n.trim() || !e.trim() || !p.trim()) {
-    alert('Please fill in your name, email, and phone number.');
-    return;
-  }
-
-  var btn = document.querySelector('.form-submit');
-  if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
-
-  fetch('https://hook.us2.make.com/x7vtpem5ldvrv34y5hmcy6bdxsoy8xlc', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name:      n.trim(),
-      email:     e.trim(),
-      phone:     p.trim(),
-      location:  loc,
-      timestamp: new Date().toISOString()
-    })
-  }).catch(function() {});
-
-  document.getElementById('form-fields').style.display  = 'none';
-  document.getElementById('form-success').style.display = 'block';
-};
-
-/* ── Scroll fade-in animations ── */
-(function() {
-  var obs = new IntersectionObserver(function(entries) {
-    entries.forEach(function(e) {
-      if (e.isIntersecting) e.target.classList.add('visible');
-    });
-  }, { threshold: 0.12 });
-  document.querySelectorAll('.fade-up').forEach(function(el) { obs.observe(el); });
-})();
-</script>
 
 <!-- ── POPUP (fires at 25s) ── -->
 <div id="lcc-popup" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(10,6,30,0.88);backdrop-filter:blur(8px);align-items:center;justify-content:center;">
@@ -1690,5 +1466,150 @@ window.submitForm = function() {
 <div id="lcc-bar-wrap" style="position:fixed;top:0;left:0;right:0;height:2px;z-index:99999;pointer-events:none;">
   <div id="lcc-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#C9A84C,#f0d878);will-change:width;"></div>
 </div>
+
+<!-- ── PROGRESS BAR ── -->
+<div id="lcc-bar-wrap" style="position:fixed;top:0;left:0;right:0;height:2px;z-index:99999;pointer-events:none;">
+  <div id="lcc-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#C9A84C,#f0d878);will-change:width;"></div>
+</div>
+
+<!-- ── POPUP (fires at 25s) ── -->
+<div id="lcc-popup" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(10,6,30,0.88);backdrop-filter:blur(8px);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:20px;padding:40px 36px;max-width:420px;width:90%;text-align:center;position:relative;box-shadow:0 40px 100px rgba(0,0,0,.4);">
+    <button onclick="document.getElementById('lcc-popup').style.display='none';document.body.style.overflow='';" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:26px;cursor:pointer;color:#999;line-height:1;">&#215;</button>
+    <div style="font-size:40px;margin-bottom:12px;">&#127881;</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:#4A35B0;margin-bottom:8px;">Limited Time Offer</div>
+    <div style="font-family:'Playfair Display',serif;font-size:42px;font-weight:900;color:#2E1F6B;line-height:1;margin-bottom:6px;">$50 OFF</div>
+    <p style="font-size:15px;color:#6B6585;line-height:1.65;margin-bottom:24px;">Book your <strong>FREE no-obligation consultation</strong> today.</p>
+    <a href="#inquiry-form" onclick="document.getElementById('lcc-popup').style.display='none';document.body.style.overflow='';" style="display:block;background:#2E1F6B;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:14px;border-radius:8px;text-decoration:none;margin-bottom:10px;">Inquire Now &#8594;</a>
+    <a href="tel:+12894018028" style="display:block;background:#C9A84C;color:#0D0720;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:13px;border-radius:8px;text-decoration:none;">&#128222; Call Now &mdash; +1 289 401 8028</a>
+  </div>
+</div>
+
+<script>
+(function() {
+  var GS_URL   = 'https://script.google.com/macros/s/AKfycbysICk6LbEkYG8eXKYYri_JfDALNN3RVt5lTrfAaB9_eONj7ojjRpZgOtjfM8BcxFXP4Q/exec';
+  var MAKE_URL = 'https://hook.us2.make.com/x7vtpem5ldvrv34y5hmcy6bdxsoy8xlc';
+  var SECONDS  = 25;
+
+  // ── Unique user ID (24hr dedup) ──────────────────────
+  var uid = localStorage.getItem('lcc_uid') || '';
+  if (!uid) {
+    uid = 'u' + Date.now() + Math.random().toString(36).substr(2,6);
+    localStorage.setItem('lcc_uid', uid);
+  }
+
+  function utmSource() {
+    try { return new URLSearchParams(location.search).get('utm_source') || 'google_ads'; }
+    catch(e) { return 'google_ads'; }
+  }
+
+  function alreadyViewedToday() {
+    return (Date.now() - parseInt(localStorage.getItem('lcc_v_'+uid)||'0',10)) < 86400000;
+  }
+  function markViewed() {
+    localStorage.setItem('lcc_v_'+uid, Date.now().toString());
+  }
+
+  // ── Smooth progress bar (rAF) ────────────────────────
+  var barEl     = null;
+  var elapsed   = 0;
+  var startedAt = null;
+  var running   = false;
+  var rafId     = null;
+  var viewDone  = false;
+
+  function updateBar(pct) {
+    if (!barEl) barEl = document.getElementById('lcc-bar');
+    if (barEl) barEl.style.width = Math.min(pct,100).toFixed(2) + '%';
+  }
+
+  function rafLoop(now) {
+    if (!running) return;
+    if (document.hidden || document.visibilityState !== 'visible') { pauseTimer(); return; }
+    var secs = elapsed + (now - startedAt) / 1000;
+    updateBar((secs / SECONDS) * 100);
+    if (secs >= SECONDS) {
+      running = false; elapsed = SECONDS; updateBar(100);
+      onViewQualified(); return;
+    }
+    rafId = requestAnimationFrame(rafLoop);
+  }
+
+  function startTimer() {
+    if (running || viewDone) return;
+    running = true; startedAt = performance.now();
+    rafId = requestAnimationFrame(rafLoop);
+  }
+
+  function pauseTimer() {
+    if (!running) return;
+    running = false;
+    elapsed += (performance.now() - startedAt) / 1000;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  // Pause when tab loses focus, resume when focused
+  document.addEventListener('visibilitychange', function() {
+    document.hidden ? pauseTimer() : (!viewDone && startTimer());
+  });
+  window.addEventListener('blur',  function() { pauseTimer(); });
+  window.addEventListener('focus', function() { if (!viewDone) startTimer(); });
+
+  // ── 25s qualified — log to Google Sheet ──────────────
+  function onViewQualified() {
+    if (viewDone) return;
+    viewDone = true;
+    if (!alreadyViewedToday()) {
+      markViewed();
+      // Image pixel — zero CORS, works from any domain
+      var img = new Image();
+      img.src = GS_URL
+        + '?action=view'
+        + '&userId=' + encodeURIComponent(uid)
+        + '&source='  + encodeURIComponent(utmSource())
+        + '&t='       + Date.now();
+    }
+    // Show popup
+    var p = document.getElementById('lcc-popup');
+    if (p) { p.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+  }
+
+  // ── Form submit → Make.com ───────────────────────────
+  window.submitForm = function() {
+    var n   = (document.getElementById('fname')     || {}).value || '';
+    var em  = (document.getElementById('femail')    || {}).value || '';
+    var p   = (document.getElementById('fphone')    || {}).value || '';
+    var loc = (document.getElementById('flocation') || {}).value || '';
+    if (!n.trim()||!em.trim()||!p.trim()) {
+      alert('Please fill in your name, email, and phone number.'); return;
+    }
+    var btn = document.querySelector('.form-submit');
+    if (btn) { btn.disabled=true; btn.textContent='Sending...'; }
+    fetch(MAKE_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        name:n.trim(), email:em.trim(), phone:p.trim(),
+        location:loc, source:utmSource(),
+        timestamp:new Date().toISOString()
+      })
+    }).catch(function(){});
+    document.getElementById('form-fields').style.display='none';
+    document.getElementById('form-success').style.display='block';
+  };
+
+  // ── Scroll animations ────────────────────────────────
+  var obs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold:0.12 });
+  document.querySelectorAll('.fade-up').forEach(function(el) { obs.observe(el); });
+
+  // ── Start timer on load ──────────────────────────────
+  window.addEventListener('load', function() {
+    barEl = document.getElementById('lcc-bar');
+    startTimer();
+  });
+
+})();
+</script>
 </body>
 </html>
